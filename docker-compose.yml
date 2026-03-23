@@ -1,0 +1,92 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: niyamitra-postgres
+    environment:
+      POSTGRES_DB: niyamitra
+      POSTGRES_USER: niyamitra
+      POSTGRES_PASSWORD: niyamitra_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - niyamitra-pgdata:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U niyamitra -d niyamitra"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: niyamitra-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --schema-registry-addr 0.0.0.0:18081
+      - --pandaproxy-addr 0.0.0.0:18082
+    ports:
+      - "9092:9092"
+      - "18081:18081"
+      - "18082:18082"
+
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: niyamitra-redpanda-console
+    depends_on:
+      - redpanda
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:29092"]
+        schemaRegistry:
+          enabled: true
+          urls: ["http://redpanda:18081"]
+    ports:
+      - "8888:8080"
+
+  redis:
+    image: redis:7-alpine
+    container_name: niyamitra-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: niyamitra-minio
+    environment:
+      MINIO_ROOT_USER: niyamitra
+      MINIO_ROOT_PASSWORD: niyamitra_dev
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - niyamitra-minio-data:/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: niyamitra-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    command: start-dev
+    ports:
+      - "8080:8080"
+
+volumes:
+  niyamitra-pgdata:
+  niyamitra-minio-data:
