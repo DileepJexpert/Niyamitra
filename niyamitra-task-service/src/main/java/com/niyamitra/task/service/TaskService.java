@@ -24,6 +24,12 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Transactional
+    public ComplianceTask createTask(ComplianceTask task) {
+        log.info("Creating compliance task: {} for tenant {}", task.getTitle(), task.getTenantId());
+        return taskRepository.save(task);
+    }
+
     public List<ComplianceTask> getTasksByTenant(UUID tenantId, TaskStatus status) {
         if (status != null) {
             return taskRepository.findByTenantIdAndStatus(tenantId, status);
