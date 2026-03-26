@@ -2,6 +2,8 @@ package com.niyamitra.profile.service;
 
 import com.niyamitra.common.config.KafkaTopics;
 import com.niyamitra.common.event.TenantOnboardedEvent;
+import com.niyamitra.common.exception.DuplicateResourceException;
+import com.niyamitra.common.exception.ResourceNotFoundException;
 import com.niyamitra.profile.controller.dto.*;
 import com.niyamitra.profile.model.NiyamitraTenant;
 import com.niyamitra.profile.model.NiyamitraUser;
@@ -31,7 +33,7 @@ public class TenantService {
     public NiyamitraTenant onboardTenant(OnboardRequest request) {
         // Check for duplicate GSTIN
         tenantRepository.findByGstin(request.gstin()).ifPresent(t -> {
-            throw new IllegalArgumentException("Tenant with GSTIN " + request.gstin() + " already exists");
+            throw new DuplicateResourceException("Tenant", "GSTIN", request.gstin());
         });
 
         NiyamitraTenant tenant = NiyamitraTenant.builder()
@@ -76,7 +78,7 @@ public class TenantService {
 
     public NiyamitraTenant getTenant(UUID tenantId) {
         return tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new IllegalArgumentException("Tenant not found: " + tenantId));
+                .orElseThrow(() -> new ResourceNotFoundException("Tenant", tenantId));
     }
 
     @Transactional
