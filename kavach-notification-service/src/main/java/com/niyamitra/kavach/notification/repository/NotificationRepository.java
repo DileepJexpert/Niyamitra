@@ -12,5 +12,7 @@ public interface NotificationRepository extends JpaRepository<KavachNotification
 
     List<KavachNotification> findByTenantId(UUID tenantId);
 
+    List<KavachNotification> findByTenantIdOrderBySentAtDesc(UUID tenantId);
+
     List<KavachNotification> findByDeliveryStatus(String status);
 }
