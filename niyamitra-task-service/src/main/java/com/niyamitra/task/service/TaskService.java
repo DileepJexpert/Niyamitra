@@ -2,7 +2,9 @@ package com.niyamitra.task.service;
 
 import com.niyamitra.common.config.KafkaTopics;
 import com.niyamitra.common.enums.TaskStatus;
+import com.niyamitra.common.event.EscalationTriggeredEvent;
 import com.niyamitra.common.event.ExpiryApproachingEvent;
+import com.niyamitra.common.exception.ResourceNotFoundException;
 import com.niyamitra.task.model.ComplianceTask;
 import com.niyamitra.task.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,12 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Transactional
+    public ComplianceTask createTask(ComplianceTask task) {
+        log.info("Creating compliance task: {} for tenant {}", task.getTitle(), task.getTenantId());
+        return taskRepository.save(task);
+    }
+
     public List<ComplianceTask> getTasksByTenant(UUID tenantId, TaskStatus status) {
         if (status != null) {
             return taskRepository.findByTenantIdAndStatus(tenantId, status);
@@ -33,7 +41,7 @@ public class TaskService {
 
     public ComplianceTask getTask(UUID taskId) {
         return taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
     }
 
     @Transactional
@@ -78,6 +86,34 @@ public class TaskService {
                 kafkaTemplate.send(KafkaTopics.EXPIRY_APPROACHING, task.getId().toString(), event);
                 log.info("Published expiry alert: task={}, daysRemaining={}", task.getId(), daysAhead);
             }
+        }
+
+        // Check for T-5 unacknowledged tasks that need escalation
+        LocalDate fiveDaysOut = today.plusDays(5);
+        List<ComplianceTask> escalationCandidates = taskRepository.findTasksDueOn(fiveDaysOut);
+        for (ComplianceTask task : escalationCandidates) {
+            if (!task.isAcknowledged() && task.getEscalationLevel() == 0) {
+                task.setEscalationLevel(1);
+                task.setStatus(TaskStatus.ESCALATED);
+                taskRepository.save(task);
+
+                EscalationTriggeredEvent escalation = new EscalationTriggeredEvent(
+                        UUID.randomUUID(), task.getId(), task.getTenantId(),
+                        null, // escalateToUserId — owner lookup needed
+                        "T-5 deadline approaching, floor manager unresponsive",
+                        Instant.now(), UUID.randomUUID(), "KAVACH"
+                );
+                kafkaTemplate.send(KafkaTopics.ESCALATION_TRIGGERED, task.getId().toString(), escalation);
+                log.info("Kavach escalation triggered for task {}", task.getId());
+            }
+        }
+
+        // Mark overdue tasks
+        List<ComplianceTask> overdueTasks = taskRepository.findTasksDueOn(today.minusDays(1));
+        for (ComplianceTask task : overdueTasks) {
+            task.setStatus(TaskStatus.OVERDUE);
+            taskRepository.save(task);
+            log.info("Task {} marked as OVERDUE", task.getId());
         }
     }
 }

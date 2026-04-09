@@ -5,6 +5,7 @@ import com.niyamitra.task.model.ComplianceTask;
 import com.niyamitra.task.service.AnupalanScoreService;
 import com.niyamitra.task.service.TaskService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,11 @@ public class TaskController {
 
     private final TaskService taskService;
     private final AnupalanScoreService anupalanScoreService;
+
+    @PostMapping("/tasks")
+    public ResponseEntity<ComplianceTask> createTask(@RequestBody ComplianceTask task) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(taskService.createTask(task));
+    }
 
     @GetMapping("/tasks")
     public ResponseEntity<List<ComplianceTask>> getTasks(

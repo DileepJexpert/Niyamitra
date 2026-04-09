@@ -31,6 +31,10 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+niyamitra:
+  encryption:
+    key: ${ENCRYPTION_KEY:niyamitra-dev-key-32-chars-long!}
+
 logging:
   level:
     com.niyamitra: DEBUG

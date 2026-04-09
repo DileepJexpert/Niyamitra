@@ -1,8 +1,10 @@
 package com.niyamitra.profile.controller;
 
 import com.niyamitra.profile.controller.dto.*;
+import com.niyamitra.profile.model.KavachPortalCredential;
 import com.niyamitra.profile.model.NiyamitraTenant;
 import com.niyamitra.profile.model.NiyamitraUser;
+import com.niyamitra.profile.service.PortalCredentialService;
 import com.niyamitra.profile.service.TenantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -19,6 +22,7 @@ import java.util.UUID;
 public class TenantController {
 
     private final TenantService tenantService;
+    private final PortalCredentialService portalCredentialService;
 
     @PostMapping("/onboard")
     public ResponseEntity<NiyamitraTenant> onboardTenant(@Valid @RequestBody OnboardRequest request) {
@@ -45,5 +49,20 @@ public class TenantController {
     @GetMapping("/{tenantId}/users")
     public ResponseEntity<List<NiyamitraUser>> listUsers(@PathVariable UUID tenantId) {
         return ResponseEntity.ok(tenantService.listUsers(tenantId));
+    }
+
+    @PostMapping("/{tenantId}/credentials")
+    public ResponseEntity<Map<String, String>> storeCredential(@PathVariable UUID tenantId,
+                                                                @Valid @RequestBody StoreCredentialRequest request) {
+        KavachPortalCredential cred = portalCredentialService.storeCredential(tenantId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of("id", cred.getId().toString(), "portalName", cred.getPortalName(), "status", "encrypted_and_stored"));
+    }
+
+    @GetMapping("/{tenantId}/credentials/{portalId}")
+    public ResponseEntity<Map<String, String>> getCredential(@PathVariable UUID tenantId,
+                                                              @PathVariable String portalId) {
+        KavachPortalCredential cred = portalCredentialService.getCredential(tenantId, portalId);
+        return ResponseEntity.ok(Map.of("id", cred.getId().toString(), "portalName", cred.getPortalName(), "status", "stored"));
     }
 }

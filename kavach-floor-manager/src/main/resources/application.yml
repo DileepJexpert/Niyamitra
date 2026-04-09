@@ -29,6 +29,9 @@ kavach:
     model: claude-haiku-4-5-20251001
   whatsapp:
     verify-token: ${WHATSAPP_VERIFY_TOKEN:kavach-verify-token}
+  services:
+    task-url: http://localhost:8084
+    rule-url: http://localhost:8082
 
 logging:
   level:
